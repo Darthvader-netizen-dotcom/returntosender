@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RETURN TO SENDER</title>
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a1512;
+    color: #efe3c8;
+    font-family: "Courier New", Courier, monospace;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #game-wrap {
+    position: relative;
+    width: 960px;
+    height: 600px;
+    max-width: 100vw;
+    max-height: 100vh;
+    border: 4px solid #3d281c;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.75);
+    background: #231d19;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .hud-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .pill {
+    background: rgba(35, 29, 25, 0.9);
+    border: 2px solid #5c3d2b;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 0.6px;
+    color: #efe3c8;
+    text-shadow: 1px 1px 0 #1a1512;
+  }
+  .pill .accent-red { color: #c94a38; }
+  .pill .accent-yellow { color: #e3b23c; }
+  .btn {
+    pointer-events: auto;
+    background: #3d281c;
+    color: #efe3c8;
+    border: 2px solid #efe3c8;
+    padding: 5px 11px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+  }
+  .btn:hover {
+    background: #c94a38;
+    border-color: #efe3c8;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(26, 21, 18, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 28px;
+    z-index: 10;
+  }
+  .overlay.hidden {
+    display: none;
+  }
+  .stamp-badge {
+    display: inline-block;
+    border: 3px solid #c94a38;
+    color: #c94a38;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    transform: rotate(-3deg);
+    margin-bottom: 10px;
+  }
+  h1 {
+    margin: 0 0 12px;
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: #efe3c8;
+    text-shadow: 3px 3px 0 #3d281c;
+  }
+  .premise {
+    max-width: 580px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #d8c8a8;
+    margin: 0 0 18px;
+  }
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 8px 18px;
+    text-align: left;
+    font-size: 12px;
+    color: #efe3c8;
+    background: #2e241e;
+    border: 2px solid #5c3d2b;
+    padding: 12px 16px;
+    margin-bottom: 22px;
+    max-width: 620px;
+  }
+  .legend span.tag {
+    font-weight: bold;
+    color: #e3b23c;
+  }
+  .legend span.red {
+    font-weight: bold;
+    color: #c94a38;
+  }
+  .big-btn {
+    background: #c94a38;
+    color: #efe3c8;
+    border: 3px solid #efe3c8;
+    padding: 12px 28px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 #3d281c;
+  }
+  .big-btn:hover {
+    background: #e3b23c;
+    color: #1a1512;
+  }
+  .stats-box {
+    background: #2e241e;
+    border: 2px solid #5c3d2b;
+    padding: 14px 24px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="game" width="960" height="600"></canvas>
+
+  <div id="hud">
+    <div class="hud-group">
+      <div class="pill">BOUNCES: <span id="hud-bounces" class="accent-yellow">0</span></div>
+      <div class="pill">STAMPS: <span id="hud-stamps" class="accent-red">0 / 3</span></div>
+      <div class="pill">TIME: <span id="hud-time">0:00</span></div>
+    </div>
+    <div class="hud-group">
+      <button id="btn-mute" class="btn">SOUND: ON</button>
+      <button id="btn-restart" class="btn">RESTART</button>
+    </div>
+  </div>
+
+  <div id="title-screen" class="overlay">
+    <div class="stamp-badge">UNDELIVERABLE // BOUNCE BACK</div>
+    <h1>RETURN TO SENDER</h1>
+    <p class="premise">
+      You are <strong>PARCEL #00-NOPE</strong>, a tiny cardboard square trapped inside an abandoned,
+      surreal postal sorting maze. Every address on Earth rejected you. Steer your momentum,
+      survive aggressive rejection stamps, grab <strong>3 lost postage stamps</strong>, and bounce
+      yourself into the <strong>Giant Outgoing Mailbox</strong>.
+    </p>
+    <div class="legend">
+      <div><span class="tag">WASD / ARROWS:</span> Steer &amp; nudge momentum</div>
+      <div><span class="red">REJECTION STAMPS:</span> Big punts + funny insults</div>
+      <div><span class="tag">BOUNCE PADS / SPRING BOXES:</span> High-energy launches</div>
+      <div><span class="tag">CONVEYOR BELTS:</span> Push you sideways</div>
+    </div>
+    <button id="btn-start" class="big-btn">DELIVER YOURSELF</button>
+  </div>
+
+  <div id="win-screen" class="overlay hidden">
+    <div class="stamp-badge">ACCEPTED // SELF-DELIVERED</div>
+    <h1>DELIVERED!</h1>
+    <p class="premise">
+      Against all regulations, physics, and clerical apathy, you finally reached your own
+      destination. The Giant Mailbox clanks shut with a warm, triumphant *THUNK*.
+    </p>
+    <div id="win-stats" class="stats-box"></div>
+    <button id="btn-play-again" class="big-btn">BOUNCE AGAIN</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  // Limited Jam Palette
+  const PAL = {
+    cream: "#efe3c8",
+    creamDark: "#d5c29d",
+    brownDark: "#3d281c",
+    brownMid: "#6b442d",
+    charcoal: "#231d19",
+    charcoalLight: "#342c27",
+    red: "#c94a38",
+    redDark: "#8f2c20",
+    yellow: "#e3b23c"
+  };
+
+  // DOM refs
+  const hudBounces = document.getElementById("hud-bounces");
+  const hudStamps = document.getElementById("hud-stamps");
+  const hudTime = document.getElementById("hud-time");
+  const btnMute = document.getElementById("btn-mute");
+  const btnRestart = document.getElementById("btn-restart");
+  const btnStart = document.getElementById("btn-start");
+  const btnPlayAgain = document.getElementById("btn-play-again");
+  const titleScreen = document.getElementById("title-screen");
+  const winScreen = document.getElementById("win-screen");
+  const winStats = document.getElementById("win-stats");
+
+  // --- WEB AUDIO API SYNTH (NO EXTERNAL FILES) ---
+  const audio = {
+    ctx: null,
+    muted: false,
+    ensure() {
+      if (this.muted) return null;
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) this.ctx = new AC();
+      }
+      if (this.ctx && this.ctx.state === "suspended") {
+        this.ctx.resume().catch(() => {});
+      }
+      return this.ctx;
+    },
+    playBounce(intensity = 1) {
+      const c = this.ensure();
+      if (!c) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = "triangle";
+      const base = Math.min(340, 130 + intensity * 140);
+      osc.frequency.setValueAtTime(base, now);
+      osc.frequency.exponentialRampToValueAtTime(68, now + 0.11);
+      gain.gain.setValueAtTime(Math.min(0.25, 0.1 + intensity * 0.1), now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.13);
+    },
+    playStamp() {
+      const c = this.ensure();
+      if (!c) return;
+      const now = c.currentTime;
+      // Punchy low thud + crisp snap
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(190, now);
+      osc.frequency.exponentialRampToValueAtTime(48, now + 0.18);
+      gain.gain.setValueAtTime(0.28, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    },
+    playCollect() {
+      const c = this.ensure();
+      if (!c) return;
+      const now = c.currentTime;
+      const notes = [523.25, 659.25, 783.99];
+      notes.forEach((freq, i) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(freq, now + i * 0.055);
+        gain.gain.setValueAtTime(0.1, now + i * 0.055);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.055 + 0.12);
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(now + i * 0.055);
+        osc.stop(now + i * 0.055 + 0.13);
+      });
+    },
+    playWin() {
+      const c = this.ensure();
+      if (!c) return;
+      const now = c.currentTime;
+      const chord = [392.0, 493.88, 587.33, 783.99];
+      chord.forEach((freq, i) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now + i * 0.09);
+        gain.gain.setValueAtTime(0.16, now + i * 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.35);
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(now + i * 0.09);
+        osc.stop(now + i * 0.09 + 0.36);
+      });
+    }
+  };
+
+  btnMute.addEventListener("click", () => {
+    audio.muted = !audio.muted;
+    btnMute.textContent = audio.muted ? "SOUND: OFF" : "SOUND: ON";
+    if (!audio.muted) audio.ensure();
+  });
+
+  // --- INPUT ---
+  const keys = {};
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d"].includes(k)) {
+      e.preventDefault();
+    }
+    keys[k] = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  // --- LEVEL DEFINITION (COMPACT 2-3 MIN SURREAL SORTING MAZE) ---
+  // Outer walls + interior sorting ledges, chutes, bounce pads, conveyors, rejection stamps, 3 lost stamps, and Giant Mailbox.
+  const walls = [
+    // Perimeter
+    { x: 0, y: 0, w: 960, h: 24 },
+    { x: 0, y: 576, w: 960, h: 24 },
+    { x: 0, y: 0, w: 24, h: 600 },
+    { x: 936, y: 0, w: 24, h: 600 },
+
+    // Left starting bay & lower chute
+    { x: 24, y: 170, w: 190, h: 22 },
+    { x: 180, y: 340, w: 22, h: 236 },
+    { x: 24, y: 445, w: 110, h: 20 },
+
+    // Center-bottom sorting divider & upper shelf
+    { x: 202, y: 440, w: 230, h: 22 },
+    { x: 320, y: 245, w: 22, h: 120 },
+    { x: 265, y: 125, w: 220, h: 20 },
+
+    // Middle-right vertical sorting chute (requires stamp punt / bounce pad to climb)
+    { x: 485, y: 125, w: 22, h: 195 },
+    { x: 485, y: 390, w: 22, h: 186 },
+    { x: 507, y: 455, w: 175, h: 22 },
+
+    // Upper-right gallery & final mailbox alcove
+    { x: 560, y: 160, w: 210, h: 20 },
+    { x: 682, y: 275, w: 150, h: 20 },
+    { x: 770, y: 24, w: 22, h: 156 },
+    { x: 770, y: 395, w: 166, h: 22 }
+  ];
+
+  // Bounce pads: push strongly along their normal/launch vector
+  const bouncePads = [
+    { x: 142, y: 558, w: 38, h: 18, vx: 60, vy: -540, label: "BOING", anim: 0 },
+    { x: 388, y: 422, w: 42, h: 18, vx: 90, vy: -560, label: "BOING", anim: 0 },
+    { x: 635, y: 437, w: 42, h: 18, vx: 40, vy: -580, label: "BOING", anim: 0 },
+    { x: 870, y: 558, w: 46, h: 18, vx: -90, vy: -610, label: "BOING", anim: 0 }
+  ];
+
+  // Spring Mailboxes: oversized red/cream spring boxes that launch you diagonally
+  const springMailboxes = [
+    { x: 42, y: 411, w: 38, h: 34, vx: 470, vy: -390, anim: 0 },
+    { x: 522, y: 286, w: 38, h: 34, vx: 460, vy: -420, anim: 0 },
+    { x: 712, y: 241, w: 38, h: 34, vx: 430, vy: -440, anim: 0 }
+  ];
+
+  // Conveyor belts: push parcel horizontally while touching top
+  const conveyors = [
+    { x: 202, y: 556, w: 283, h: 20, speed: 155, phase: 0 },
+    { x: 275, y: 105, w: 195, h: 20, speed: 140, phase: 0 },
+    { x: 575, y: 140, w: 180, h: 20, speed: -145, phase: 0 }
+  ];
+
+  // Rejection Stamps: punchy red rubber stamps that punt the parcel and spawn funny messages
+  const rejectionStamps = [
+    { id: "s1", x: 224, y: 320, w: 54, h: 36, vx: 520, vy: -340, cooldown: 0 },
+    { id: "s2", x: 356, y: 210, w: 54, h: 36, vx: 540, vy: -260, cooldown: 0 },
+    { id: "s3", x: 518, y: 515, w: 54, h: 36, vx: 380, vy: -520, cooldown: 0 },
+    { id: "s4", x: 798, y: 215, w: 54, h: 36, vx: -460, vy: -430, cooldown: 0 },
+    { id: "s5", x: 840, y: 345, w: 54, h: 36, vx: 340, vy: -540, cooldown: 0 }
+  ];
+
+  const stampMessages = [
+    "WRONG ADDRESS",
+    "RETURNED TO SENDER",
+    "DELIVERY FAILED",
+    "NO SUCH PERSON",
+    "MOVED, LEFT NO NOTE",
+    "INSUFFICIENT VIBE"
+  ];
+
+  // 3 Lost Postage Stamps to collect
+  const initialCollectibles = [
+    { id: 1, x: 64, y: 82, r: 14, collected: false, bob: 0 },
+    { id: 2, x: 534, y: 82, r: 14, collected: false, bob: 1.7 },
+    { id: 3, x: 895, y: 315, r: 14, collected: false, bob: 3.4 }
+  ];
+
+  // Final Giant Outgoing Mailbox at upper right
+  const goalMailbox = {
+    x: 824,
+    y: 66,
+    w: 84,
+    h: 94
+  };
+
+  // Decorative background details (pipes, letter stacks, sorting bins)
+  const bgPipes = [
+    { x: 70, y: 24, w: 16, h: 146 },
+    { x: 430, y: 24, w: 18, h: 101 },
+    { x: 620, y: 180, w: 16, h: 275 }
+  ];
+
+  const bgLetterStacks = [
+    { x: 42, y: 146, w: 46, h: 24 },
+    { x: 230, y: 416, w: 52, h: 24 },
+    { x: 520, y: 431, w: 48, h: 24 },
+    { x: 705, y: 371, w: 50, h: 24 }
+  ];
+
+  // --- GAME STATE ---
+  let state = "title"; // "title" | "playing" | "won"
+  let bounces = 0;
+  let elapsed = 0;
+  let shakeTimer = 0;
+  let shakePower = 0;
+  let stampMsgIndex = 0;
+
+  const parcel = {
+    x: 68,
+    y: 510,
+    size: 26,
+    vx: 0,
+    vy: 0,
+    restitution: 0.62,
+    squashX: 1,
+    squashY: 1,
+    blinkTimer: 2.2,
+    isBlinking: false,
+    happyTimer: 0
+  };
+
+  let collectibles = [];
+  let particles = [];
+  let floatingTexts = [];
+
+  function resetGame(startPlaying = true) {
+    parcel.x = 68;
+    parcel.y = 510;
+    parcel.vx = 0;
+    parcel.vy = 0;
+    parcel.squashX = 1;
+    parcel.squashY = 1;
+    parcel.happyTimer = 0;
+
+    bounces = 0;
+    elapsed = 0;
+    shakeTimer = 0;
+    shakePower = 0;
+    particles = [];
+    floatingTexts = [];
+    collectibles = initialCollectibles.map((c) => ({ ...c, collected: false }));
+    rejectionStamps.forEach((s) => (s.cooldown = 0));
+
+    updateHud();
+    winScreen.classList.add("hidden");
+    titleScreen.classList.toggle("hidden", startPlaying);
+    state = startPlaying ? "playing" : "title";
+  }
+
+  function updateHud() {
+    hudBounces.textContent = bounces;
+    const count = collectibles.filter((c) => c.collected).length;
+    hudStamps.textContent = `${count} / 3`;
+    const totalSec = Math.floor(elapsed);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    hudTime.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  function triggerShake(power, duration = 0.16) {
+    shakePower = Math.max(shakePower, power);
+    shakeTimer = Math.max(shakeTimer, duration);
+  }
+
+  function spawnParticles(x, y, color, count = 8, speed = 150) {
+    for (let i = 0; i < count; i++) {
+      const ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
+      const spd = speed * (0.4 + Math.random() * 0.8);
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 40,
+        size: 3 + Math.floor(Math.random() * 3),
+        color,
+        life: 0.35 + Math.random() * 0.25,
+        maxLife: 0.6
+      });
+    }
+  }
+
+  function addFloatingText(x, y, text, color = PAL.red) {
+    floatingTexts.push({
+      x,
+      y,
+      vy: -48,
+      text,
+      color,
+      life: 1.15
+    });
+  }
+
+  function aabbOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+
+  // Resolve parcel against a solid rectangle; returns true if collision occurred
+  function collideRect(rect, bounceFactor = parcel.restitution, countAsBounce = true) {
+    if (!aabbOverlap(parcel.x, parcel.y, parcel.size, parcel.size, rect.x, rect.y, rect.w, rect.h)) {
+      return null;
+    }
+    const overlapLeft = parcel.x + parcel.size - rect.x;
+    const overlapRight = rect.x + rect.w - parcel.x;
+    const overlapTop = parcel.y + parcel.size - rect.y;
+    const overlapBottom = rect.y + rect.h - parcel.y;
+
+    const minX = Math.min(overlapLeft, overlapRight);
+    const minY = Math.min(overlapTop, overlapBottom);
+
+    let side = "";
+    if (minX < minY) {
+      if (overlapLeft < overlapRight) {
+        parcel.x = rect.x - parcel.size;
+        side = "left";
+      } else {
+        parcel.x = rect.x + rect.w;
+        side = "right";
+      }
+      const impactSpeed = Math.abs(parcel.vx);
+      if (impactSpeed > 45) {
+        parcel.vx = -parcel.vx * bounceFactor;
+        parcel.squashX = 0.75;
+        parcel.squashY = 1.25;
+        if (countAsBounce) {
+          bounces++;
+          audio.playBounce(impactSpeed / 450);
+          spawnParticles(
+            side === "left" ? parcel.x + parcel.size : parcel.x,
+            parcel.y + parcel.size * 0.5,
+            PAL.creamDark,
+            5,
+            110
+          );
+          if (impactSpeed > 380) triggerShake(4.5, 0.12);
+        }
+      } else {
+        parcel.vx = 0;
+      }
+    } else {
+      if (overlapTop < overlapBottom) {
+        parcel.y = rect.y - parcel.size;
+        side = "top";
+      } else {
+        parcel.y = rect.y + rect.h;
+        side = "bottom";
+      }
+      const impactSpeed = Math.abs(parcel.vy);
+      if (impactSpeed > 45) {
+        parcel.vy = -parcel.vy * bounceFactor;
+        parcel.squashX = 1.25;
+        parcel.squashY = 0.75;
+        if (countAsBounce) {
+          bounces++;
+          audio.playBounce(impactSpeed / 450);
+          spawnParticles(
+            parcel.x + parcel.size * 0.5,
+            side === "top" ? parcel.y + parcel.size : parcel.y,
+            PAL.creamDark,
+            5,
+            110
+          );
+          if (impactSpeed > 380) triggerShake(4.5, 0.12);
+        }
+      } else {
+        parcel.vy = 0;
+      }
+    }
+    return side;
+  }
+
+  // --- SIMULATION UPDATE ---
+  function update(dt) {
+    if (state !== "playing") return;
+
+    elapsed += dt;
+
+    // Gentle gravity + responsive steering inertia
+    const gravity = 640;
+    const steerAccel = 980;
+    const airDrag = 0.992;
+
+    let ax = 0;
+    let ay = gravity;
+    if (keys["arrowleft"] || keys["a"]) ax -= steerAccel;
+    if (keys["arrowright"] || keys["d"]) ax += steerAccel;
+    if (keys["arrowup"] || keys["w"]) ay -= steerAccel * 0.72;
+    if (keys["arrowdown"] || keys["s"]) ay += steerAccel * 0.45;
+
+    parcel.vx = (parcel.vx + ax * dt) * Math.pow(airDrag, dt * 60);
+    parcel.vy = (parcel.vy + ay * dt) * Math.pow(airDrag, dt * 60);
+
+    // Clamp max speed so physics stay crisp and controllable
+    const maxSpeed = 760;
+    const spd = Math.hypot(parcel.vx, parcel.vy);
+    if (spd > maxSpeed) {
+      parcel.vx = (parcel.vx / spd) * maxSpeed;
+      parcel.vy = (parcel.vy / spd) * maxSpeed;
+    }
+
+    // Move & collide X then Y for clean corner behavior
+    parcel.x += parcel.vx * dt;
+    for (const w of walls) {
+      if (aabbOverlap(parcel.x, parcel.y, parcel.size, parcel.size, w.x, w.y, w.w, w.h)) {
+        if (parcel.vx > 0) {
+          parcel.x = w.x - parcel.size;
+        } else if (parcel.vx < 0) {
+          parcel.x = w.x + w.w;
+        }
+        const hitSpd = Math.abs(parcel.vx);
+        if (hitSpd > 50) {
+          parcel.vx = -parcel.vx * parcel.restitution;
+          parcel.squashX = 0.76;
+          parcel.squashY = 1.24;
+          bounces++;
+          audio.playBounce(hitSpd / 450);
+          spawnParticles(parcel.x + parcel.size * 0.5, parcel.y + parcel.size * 0.5, PAL.creamDark, 5, 110);
+          if (hitSpd > 390) triggerShake(4, 0.11);
+        } else {
+          parcel.vx = 0;
+        }
+      }
+    }
+
+    parcel.y += parcel.vy * dt;
+    for (const w of walls) {
+      if (aabbOverlap(parcel.x, parcel.y, parcel.size, parcel.size, w.x, w.y, w.w, w.h)) {
+        if (parcel.vy > 0) {
+          parcel.y = w.y - parcel.size;
+        } else if (parcel.vy < 0) {
+          parcel.y = w.y + w.h;
+        }
+        const hitSpd = Math.abs(parcel.vy);
+        if (hitSpd > 50) {
+          parcel.vy = -parcel.vy * parcel.restitution;
+          parcel.squashX = 1.24;
+          parcel.squashY = 0.76;
+          bounces++;
+          audio.playBounce(hitSpd / 450);
+          spawnParticles(parcel.x + parcel.size * 0.5, parcel.y + parcel.size * 0.5, PAL.creamDark, 5, 110);
+          if (hitSpd > 390) triggerShake(4, 0.11);
+        } else {
+          parcel.vy = 0;
+        }
+      }
+    }
+
+    // Conveyors: push parcel when riding on top
+    for (const c of conveyors) {
+      c.phase += c.speed * dt * 0.06;
+      const touchingTop =
+        parcel.x + parcel.size > c.x + 2 &&
+        parcel.x < c.x + c.w - 2 &&
+        Math.abs(parcel.y + parcel.size - c.y) <= 5 &&
+        parcel.vy >= -40;
+      if (touchingTop) {
+        parcel.vx += c.speed * dt * 3.4;
+      }
+    }
+
+    // Bounce pads
+    for (const bp of bouncePads) {
+      bp.anim = Math.max(0, bp.anim - dt * 4);
+      if (aabbOverlap(parcel.x, parcel.y, parcel.size, parcel.size, bp.x, bp.y, bp.w, bp.h)) {
+        parcel.y = bp.y - parcel.size;
+        parcel.vx = bp.vx + (parcel.vx * 0.25);
+        parcel.vy = bp.vy;
+        parcel.squashX = 1.35;
+        parcel.squashY = 0.68;
+        bp.anim = 1;
+        bounces++;
+        triggerShake(6, 0.16);
+        audio.playBounce(1.1);
+        spawnParticles(bp.x + bp.w * 0.5, bp.y, PAL.yellow, 9, 170);
+      }
+    }
+
+    // Spring mailboxes
+    for (const sm of springMailboxes) {
+      sm.anim = Math.max(0, sm.anim - dt * 3.5);
+      if (aabbOverlap(parcel.x, parcel.y, parcel.size, parcel.size, sm.x, sm.y, sm.w, sm.h)) {
+        parcel.vx = sm.vx;
+        parcel.vy = sm.vy;
+        parcel.squashX = 0.72;
+        parcel.squashY = 1.32;
+        sm.anim = 1;
+        bounces++;
+        triggerShake(7, 0.18);
+        audio.playBounce(1.2);
+        spawnParticles(sm.x + sm.w * 0.5, sm.y + sm.h * 0.5, PAL.red, 10, 180);
+      }
+    }
+
+    // Rejection stamps: big impulse + funny stamp message
+    for (const rs of rejectionStamps) {
+      rs.cooldown = Math.max(0, rs.cooldown - dt);
+      if (
+        rs.cooldown <= 0 &&
+        aabbOverlap(parcel.x, parcel.y, parcel.size, parcel.size, rs.x, rs.y, rs.w, rs.h)
+      ) {
+        rs.cooldown = 0.32;
+        parcel.vx = rs.vx;
+        parcel.vy = rs.vy;
+        parcel.squashX = 1.38;
+        parcel.squashY = 0.66;
+        bounces++;
+        triggerShake(9, 0.22);
+        audio.playStamp();
+
+        const msg = stampMessages[stampMsgIndex % stampMessages.length];
+        stampMsgIndex++;
+        addFloatingText(rs.x + rs.w * 0.5, rs.y - 8, msg, PAL.red);
+        spawnParticles(rs.x + rs.w * 0.5, rs.y + rs.h * 0.5, PAL.red, 12, 210);
+      }
+    }
+
+    // Lost postage stamps
+    const cx = parcel.x + parcel.size * 0.5;
+    const cy = parcel.y + parcel.size * 0.5;
+    for (const col of collectibles) {
+      col.bob += dt * 3.2;
+      if (!col.collected) {
+        const dist = Math.hypot(cx - col.x, cy - (col.y + Math.sin(col.bob) * 4));
+        if (dist < col.r + parcel.size * 0.55) {
+          col.collected = true;
+          parcel.happyTimer = 1.1;
+          audio.playCollect();
+          addFloatingText(col.x, col.y - 12, "STAMP FOUND!", PAL.yellow);
+          spawnParticles(col.x, col.y, PAL.yellow, 14, 175);
+        }
+      }
+    }
+
+    // Check Giant Outgoing Mailbox goal
+    if (
+      aabbOverlap(
+        parcel.x,
+        parcel.y,
+        parcel.size,
+        parcel.size,
+        goalMailbox.x + 8,
+        goalMailbox.y + 12,
+        goalMailbox.w - 16,
+        goalMailbox.h - 16
+      )
+    ) {
+      state = "won";
+      audio.playWin();
+      spawnParticles(goalMailbox.x + goalMailbox.w * 0.5, goalMailbox.y + 40, PAL.yellow, 24, 220);
+      const found = collectibles.filter((c) => c.collected).length;
+      const totalSec = Math.floor(elapsed);
+      const mins = Math.floor(totalSec / 60);
+      const secs = (totalSec % 60).toString().padStart(2, "0");
+      winStats.innerHTML = `
+        <strong>FINAL BOUNCES:</strong> ${bounces}<br/>
+        <strong>LOST STAMPS COLLECTED:</strong> ${found} / 3<br/>
+        <strong>DELIVERY TIME:</strong> ${mins}:${secs}
+      `;
+      winScreen.classList.remove("hidden");
+    }
+
+    // Face & squash/stretch recovery
+    parcel.squashX += (1 - parcel.squashX) * Math.min(1, dt * 14);
+    parcel.squashY += (1 - parcel.squashY) * Math.min(1, dt * 14);
+    parcel.happyTimer = Math.max(0, parcel.happyTimer - dt);
+
+    parcel.blinkTimer -= dt;
+    if (parcel.blinkTimer <= 0) {
+      if (!parcel.isBlinking) {
+        parcel.isBlinking = true;
+        parcel.blinkTimer = 0.12;
+      } else {
+        parcel.isBlinking = false;
+        parcel.blinkTimer = 2.0 + Math.random() * 2.5;
+      }
+    }
+
+    // Screen shake decay
+    if (shakeTimer > 0) {
+      shakeTimer -= dt;
+      if (shakeTimer <= 0) shakePower = 0;
+    }
+
+    // Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt;
+      p.vy += 260 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // Floating messages
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.life -= dt;
+      ft.y += ft.vy * dt;
+      ft.vy *= 0.96;
+      if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+
+    updateHud();
+  }
+
+  // --- RENDERING (PIXEL-INSPIRED SORTING FACILITY) ---
+  function draw() {
+    ctx.save();
+
+    // Screen shake offset
+    if (shakeTimer > 0 && shakePower > 0) {
+      const sx = (Math.random() - 0.5) * 2 * shakePower;
+      const sy = (Math.random() - 0.5) * 2 * shakePower;
+      ctx.translate(Math.round(sx), Math.round(sy));
+    }
+
+    // Facility background
+    ctx.fillStyle = PAL.charcoal;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle grid tiles for abandoned sorting hall
+    ctx.fillStyle = PAL.charcoalLight;
+    for (let gx = 24; gx < W - 24; gx += 48) {
+      for (let gy = 24; gy < H - 24; gy += 48) {
+        ctx.fillRect(gx + 2, gy + 2, 44, 44);
+      }
+    }
+
+    // Faded postmark circles in background
+    ctx.strokeStyle = "rgba(239, 227, 200, 0.06)";
+    ctx.lineWidth = 2;
+    [
+      [160, 270, 42],
+      [410, 190, 50],
+      [610, 350, 46],
+      [840, 480, 54]
+    ].forEach(([px, py, pr]) => {
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // Background pipes
+    for (const p of bgPipes) {
+      ctx.fillStyle = PAL.brownDark;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = PAL.brownMid;
+      ctx.fillRect(p.x + 3, p.y, 4, p.h);
+    }
+
+    // Background letter stacks
+    for (const st of bgLetterStacks) {
+      ctx.fillStyle = PAL.creamDark;
+      ctx.fillRect(st.x, st.y + 8, st.w, st.h - 8);
+      ctx.fillStyle = PAL.cream;
+      ctx.fillRect(st.x + 2, st.y, st.w - 4, 10);
+      ctx.strokeStyle = PAL.brownDark;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(st.x, st.y, st.w, st.h);
+    }
+
+    // Conveyor belts
+    for (const c of conveyors) {
+      ctx.fillStyle = PAL.brownDark;
+      ctx.fillRect(c.x, c.y, c.w, c.h);
+      ctx.strokeStyle = PAL.creamDark;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(c.x, c.y, c.w, c.h);
+
+      // Moving chevrons
+      ctx.fillStyle = PAL.yellow;
+      const step = 24;
+      const offset = ((c.phase % step) + step) % step;
+      for (let x = c.x + 6; x < c.x + c.w - 8; x += step) {
+        const cxPos = x + (offset - step * 0.5) * 0.35;
+        if (cxPos > c.x + 4 && cxPos < c.x + c.w - 8) {
+          if (c.speed >= 0) {
+            ctx.fillRect(cxPos, c.y + 6, 8, 4);
+            ctx.fillRect(cxPos + 4, c.y + 10, 4, 4);
+          } else {
+            ctx.fillRect(cxPos, c.y + 6, 8, 4);
+            ctx.fillRect(cxPos, c.y + 10, 4, 4);
+          }
+        }
+      }
+    }
+
+    // Bounce pads
+    for (const bp of bouncePads) {
+      const lift = bp.anim * 6;
+      ctx.fillStyle = PAL.brownDark;
+      ctx.fillRect(bp.x, bp.y + 8, bp.w, bp.h - 8);
+      ctx.fillStyle = PAL.yellow;
+      ctx.fillRect(bp.x + 2, bp.y - lift, bp.w - 4, 9);
+      ctx.strokeStyle = PAL.brownDark;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bp.x + 2, bp.y - lift, bp.w - 4, 9);
+    }
+
+    // Spring mailboxes
+    for (const sm of springMailboxes) {
+      const stretch = sm.anim * 8;
+      // Spring coil
+      ctx.strokeStyle = PAL.creamDark;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sm.x + sm.w * 0.5, sm.y + sm.h);
+      ctx.lineTo(sm.x + sm.w * 0.5 - 7, sm.y + sm.h - 6 - stretch * 0.5);
+      ctx.lineTo(sm.x + sm.w * 0.5 + 7, sm.y + sm.h - 12 - stretch);
+      ctx.stroke();
+
+      // Mini mailbox head
+      const by = sm.y - stretch;
+      ctx.fillStyle = PAL.red;
+      ctx.fillRect(sm.x + 4, by, sm.w - 8, 20);
+      ctx.strokeStyle = PAL.cream;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sm.x + 4, by, sm.w - 8, 20);
+      // Flag
+      ctx.fillStyle = PAL.yellow;
+      ctx.fillRect(sm.x + sm.w - 6, by + 3, 6, 4);
+    }
+
+    // Rejection stamps
+    for (const rs of rejectionStamps) {
+      const push = rs.cooldown > 0 ? 5 : 0;
+      ctx.fillStyle = PAL.brownDark;
+      ctx.fillRect(rs.x + 14, rs.y + push, rs.w - 28, 12);
+      ctx.fillStyle = PAL.red;
+      ctx.fillRect(rs.x + 4, rs.y + 10 + push, rs.w - 8, rs.h - 10);
+      ctx.strokeStyle = PAL.cream;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rs.x + 4, rs.y + 10 + push, rs.w - 8, rs.h - 10);
+
+      // Stamp text glyph
+      ctx.fillStyle = PAL.cream;
+      ctx.font = "bold 9px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("REJECT", rs.x + rs.w * 0.5, rs.y + 23 + push);
+    }
+
+    // Walls (sorting chutes & girders)
+    for (const w of walls) {
+      ctx.fillStyle = PAL.brownDark;
+      ctx.fillRect(w.x, w.y, w.w, w.h);
+      ctx.fillStyle = PAL.brownMid;
+      ctx.fillRect(w.x + 2, w.y + 2, Math.max(0, w.w - 4), Math.max(0, w.h - 4));
+      // Rivet highlights
+      ctx.fillStyle = PAL.creamDark;
+      if (w.w >= w.h) {
+        for (let rx = w.x + 8; rx < w.x + w.w - 6; rx += 24) {
+          ctx.fillRect(rx, w.y + 5, 3, 3);
+        }
+      } else {
+        for (let ry = w.y + 8; ry < w.y + w.h - 6; ry += 24) {
+          ctx.fillRect(w.x + 5, ry, 3, 3);
+        }
+      }
+    }
+
+    // Giant Outgoing Mailbox (Goal)
+    {
+      const gm = goalMailbox;
+      // Post
+      ctx.fillStyle = PAL.brownDark;
+      ctx.fillRect(gm.x + gm.w * 0.5 - 10, gm.y + gm.h - 18, 20, 24);
+      // Body
+      ctx.fillStyle = PAL.red;
+      ctx.fillRect(gm.x, gm.y + 12, gm.w, gm.h - 28);
+      // Vaulted top
+      ctx.fillStyle = PAL.redDark;
+      ctx.fillRect(gm.x + 4, gm.y, gm.w - 8, 14);
+      ctx.strokeStyle = PAL.cream;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(gm.x, gm.y + 12, gm.w, gm.h - 28);
+
+      // Mail slot
+      ctx.fillStyle = PAL.charcoal;
+      ctx.fillRect(gm.x + 16, gm.y + 28, gm.w - 32, 10);
+      ctx.fillStyle = PAL.yellow;
+      ctx.fillRect(gm.x + 20, gm.y + 30, gm.w - 40, 3);
+
+      // Yellow flag
+      ctx.fillStyle = PAL.yellow;
+      ctx.fillRect(gm.x + gm.w, gm.y + 22, 14, 8);
+      ctx.fillRect(gm.x + gm.w, gm.y + 22, 4, 22);
+
+      ctx.fillStyle = PAL.cream;
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("OUTGOING", gm.x + gm.w * 0.5, gm.y + 56);
+    }
+
+    // 3 Lost Postage Stamps
+    for (const col of collectibles) {
+      if (col.collected) continue;
+      const yOff = Math.sin(col.bob) * 4;
+      const sx = col.x - 12;
+      const sy = col.y + yOff - 14;
+
+      // Serrated cream stamp
+      ctx.fillStyle = PAL.cream;
+      ctx.fillRect(sx, sy, 24, 28);
+      ctx.strokeStyle = PAL.red;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sx + 3, sy + 3, 18, 22);
+
+      // Yellow star/crown inside stamp
+      ctx.fillStyle = PAL.yellow;
+      ctx.fillRect(sx + 8, sy + 9, 8, 8);
+    }
+
+    // Parcel Character with expressive face & squash/stretch
+    {
+      const cx = parcel.x + parcel.size * 0.5;
+      const cy = parcel.y + parcel.size * 0.5;
+      const w = parcel.size * parcel.squashX;
+      const h = parcel.size * parcel.squashY;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // Box body
+      ctx.fillStyle = PAL.cream;
+      ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
+      ctx.strokeStyle = PAL.brownDark;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(-w * 0.5, -h * 0.5, w, h);
+
+      // Packing tape stripe across top
+      ctx.fillStyle = PAL.yellow;
+      ctx.fillRect(-w * 0.5 + 2, -h * 0.5 + 2, w - 4, 5);
+
+      // Expressive cute face
+      const lookX = Math.max(-2.5, Math.min(2.5, parcel.vx * 0.01));
+      const lookY = Math.max(-2, Math.min(2, parcel.vy * 0.008));
+
+      ctx.fillStyle = PAL.brownDark;
+      if (parcel.happyTimer > 0) {
+        // Happy ^ ^ eyes
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-7 + lookX, -1 + lookY);
+        ctx.lineTo(-4.5 + lookX, -4 + lookY);
+        ctx.lineTo(-2 + lookX, -1 + lookY);
+        ctx.moveTo(2 + lookX, -1 + lookY);
+        ctx.lineTo(4.5 + lookX, -4 + lookY);
+        ctx.lineTo(7 + lookX, -1 + lookY);
+        ctx.stroke();
+      } else if (parcel.isBlinking) {
+        ctx.fillRect(-7 + lookX, -2 + lookY, 4, 2);
+        ctx.fillRect(3 + lookX, -2 + lookY, 4, 2);
+      } else {
+        ctx.fillRect(-6 + lookX, -3 + lookY, 3, 4);
+        ctx.fillRect(3 + lookX, -3 + lookY, 3, 4);
+      }
+
+      // Little mouth
+      ctx.fillStyle = PAL.red;
+      if (Math.abs(parcel.vy) > 420 || parcel.happyTimer > 0) {
+        ctx.fillRect(-2.5 + lookX, 3 + lookY, 5, 4);
+      } else {
+        ctx.fillRect(-2 + lookX, 4 + lookY, 4, 2);
+      }
+
+      ctx.restore();
+    }
+
+    // Impact particles
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+
+    // Floating rejection messages
+    for (const ft of floatingTexts) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, ft.life * 1.3);
+      ctx.font = "bold 13px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = PAL.charcoal;
+      ctx.fillText(ft.text, Math.round(ft.x) + 2, Math.round(ft.y) + 2);
+      ctx.fillStyle = ft.color;
+      ctx.fillText(ft.text, Math.round(ft.x), Math.round(ft.y));
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // --- MAIN LOOP ---
+  let lastTime = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - lastTime) / 1000);
+    lastTime = now;
+
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Button wiring
+  btnStart.addEventListener("click", () => {
+    audio.ensure();
+    resetGame(true);
+  });
+  btnRestart.addEventListener("click", () => {
+    audio.ensure();
+    resetGame(true);
+  });
+  btnPlayAgain.addEventListener("click", () => {
+    audio.ensure();
+    resetGame(true);
+  });
+
+  // Initial setup on title screen
+  resetGame(false);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
